@@ -1,4 +1,4 @@
-# libcapstone.runtime
+# capstone.runtime
 
 [capstone](https://github.com/capstone-engine/capstone) natives built and packaged for C#
 

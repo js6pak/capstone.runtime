@@ -132,7 +132,7 @@ public sealed class PackageTask : AsyncFrostingTask<BuildContext>
                 RequireLicenseAcceptance = true,
                 LicenseMetadata = new LicenseMetadata(LicenseType.File, "LICENSE.TXT", null, null, LicenseMetadata.EmptyVersion),
                 Copyright = "Copyright (c) 2013, COSEINC",
-                Repository = new RepositoryMetadata("git", "https://github.com/js6pak/libcapstone.runtime", null, null),
+                Repository = new RepositoryMetadata("git", "https://github.com/js6pak/capstone.runtime", null, null),
             };
 
             packageBuilder.AddFiles(context.RepositoryPath.FullPath, "LICENSE.TXT", "");
@@ -153,7 +153,7 @@ public sealed class PackageTask : AsyncFrostingTask<BuildContext>
             var buildPath = context.TopBuildPath.Combine(target.RuntimeIdentifier);
             if (target.Platform == OSPlatform.Windows) buildPath = buildPath.Combine("Release");
 
-            var packageBuilder = CreatePackageBuilder("libcapstone.runtime." + target.RuntimeIdentifier, $"{target.RuntimeIdentifier} native library for libcapstone.");
+            var packageBuilder = CreatePackageBuilder("capstone.runtime." + target.RuntimeIdentifier, $"{target.RuntimeIdentifier} native library for capstone.");
 
             packageBuilder.AddFiles(buildPath.FullPath, target.Platform switch
             {
@@ -168,7 +168,7 @@ public sealed class PackageTask : AsyncFrostingTask<BuildContext>
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            var packageBuilder = CreatePackageBuilder("libcapstone", "Multi-platform native library for libcapstone.");
+            var packageBuilder = CreatePackageBuilder("capstone", "Multi-platform native library for capstone.");
 
             var runtimeJson = new RuntimeJson
             {
@@ -179,9 +179,9 @@ public sealed class PackageTask : AsyncFrostingTask<BuildContext>
             {
                 runtimeJson.Runtimes.Add(target.RuntimeIdentifier, new()
                 {
-                    ["libcapstone"] = new()
+                    ["capstone"] = new()
                     {
-                        ["libcapstone.runtime." + target.RuntimeIdentifier] = context.Version,
+                        ["capstone.runtime." + target.RuntimeIdentifier] = context.Version,
                     },
                 });
             }
