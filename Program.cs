@@ -1,7 +1,5 @@
 using System;
-using System.IO;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 using System.Threading.Tasks;
 using Build;
 using Cake.Common;
@@ -111,12 +109,24 @@ public sealed class BuildTask : FrostingTask<BuildContext>
                     .AppendSwitch("--config", "Release")
                     .AppendSwitch("-j", Environment.ProcessorCount.ToString()),
             });
+
+            if (target.Platform == OSPlatform.Windows) buildPath = buildPath.Combine("Release");
+
+            var nativeOutPath = context.Directory($"out/runtimes/{target.RuntimeIdentifier}/native");
+            context.EnsureDirectoryExists(nativeOutPath);
+
+            context.CopyFileToDirectory(buildPath.CombineWithFilePath(target.Platform switch
+            {
+                _ when target.Platform == OSPlatform.Linux => "libcapstone.so",
+                _ when target.Platform == OSPlatform.OSX => "libcapstone.dylib",
+                _ when target.Platform == OSPlatform.Windows => "capstone.dll",
+                _ => throw new ArgumentOutOfRangeException(),
+            }), nativeOutPath);
         }
     }
 }
 
 [TaskName("Package")]
-[IsDependentOn(typeof(BuildTask))]
 public sealed class PackageTask : AsyncFrostingTask<BuildContext>
 {
     public override async Task RunAsync(BuildContext context)
@@ -140,64 +150,25 @@ public sealed class PackageTask : AsyncFrostingTask<BuildContext>
             return packageBuilder;
         }
 
+        // TODO consider splitting the packages using runtime.json like in this commit: 8e5ab0319d179711ffe3d09873e1a47701363966, after following issues are solved:
+        // https://github.com/dotnet/ClangSharp/issues/118
+        // https://github.com/NuGet/Home/issues/6083
+
         var outPath = context.Directory("out");
 
         context.EnsureDirectoryExists(outPath);
 
-        foreach (var target in context.Targets)
-        {
-            if (!target.CanBuild) continue;
+        var packageBuilder = CreatePackageBuilder("capstone", "Multi-platform native library for capstone.");
 
-            context.Information($"Packaging {target.RuntimeIdentifier}");
+        packageBuilder.AddFiles(outPath, "runtimes/**", "runtimes");
 
-            var buildPath = context.TopBuildPath.Combine(target.RuntimeIdentifier);
-            if (target.Platform == OSPlatform.Windows) buildPath = buildPath.Combine("Release");
-
-            var packageBuilder = CreatePackageBuilder("capstone.runtime." + target.RuntimeIdentifier, $"{target.RuntimeIdentifier} native library for capstone.");
-
-            packageBuilder.AddFiles(buildPath.FullPath, target.Platform switch
-            {
-                _ when target.Platform == OSPlatform.Linux => "libcapstone.so",
-                _ when target.Platform == OSPlatform.OSX => "libcapstone.dylib",
-                _ when target.Platform == OSPlatform.Windows => "capstone.dll",
-                _ => throw new ArgumentOutOfRangeException(),
-            }, $"runtimes/{target.RuntimeIdentifier}/native");
-
-            await packageBuilder.SaveAsync(outPath.Path);
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            var packageBuilder = CreatePackageBuilder("capstone", "Multi-platform native library for capstone.");
-
-            var runtimeJson = new RuntimeJson
-            {
-                Runtimes = new(),
-            };
-
-            foreach (var target in context.Targets)
-            {
-                runtimeJson.Runtimes.Add(target.RuntimeIdentifier, new()
-                {
-                    ["capstone"] = new()
-                    {
-                        ["capstone.runtime." + target.RuntimeIdentifier] = context.Version,
-                    },
-                });
-            }
-
-            var runtimeJsonPath = context.TopBuildPath.CombineWithFilePath("runtime.json");
-            await File.WriteAllTextAsync(runtimeJsonPath.FullPath, JsonSerializer.Serialize(runtimeJson));
-            packageBuilder.AddFiles(context.TopBuildPath.FullPath, "runtime.json", "");
-
-            await packageBuilder.SaveAsync(outPath.Path);
-        }
+        await packageBuilder.SaveAsync(outPath.Path);
     }
 }
 
 [TaskName("Default")]
 [IsDependentOn(typeof(CleanTask))]
-[IsDependentOn(typeof(PackageTask))]
+[IsDependentOn(typeof(BuildTask))]
 public sealed class DefaultTask : FrostingTask
 {
 }

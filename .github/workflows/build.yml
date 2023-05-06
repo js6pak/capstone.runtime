@@ -16,7 +16,32 @@ jobs:
         run: |
           sudo apt install gcc-11-multilib g++-11-multilib gcc-aarch64-linux-gnu g++-aarch64-linux-gnu gcc-arm-linux-gnueabihf g++-arm-linux-gnueabihf
 
-      - run: dotnet run -c Release -- -v Diagnostic
+      - run: dotnet run -c Release -- -v Diagnostic -t Build
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: out/
+
+  package:
+    permissions:
+      contents: write
+    needs:
+      - build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: binaries
+          path: out/
+
+      - run: dotnet run -c Release -- -v Diagnostic -t Package
 
       - uses: actions/upload-artifact@v3
         with:
@@ -28,3 +53,4 @@ jobs:
         if: github.ref_type == 'tag'
         with:
           files: out/*.nupkg
+          draft: true
